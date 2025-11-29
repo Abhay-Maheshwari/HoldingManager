@@ -30,37 +30,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const client = getSupabaseClient()
-      
-      // Handle OAuth callback - check for hash fragment
-      const hashParams = new URLSearchParams(window.location.hash.substring(1))
-      if (hashParams.get('access_token')) {
-        // OAuth callback detected - let Supabase handle it
-        // Clean up the URL hash after processing
-        window.history.replaceState(null, '', window.location.pathname)
-      }
-
-      // Get initial session
-      client.auth.getSession().then(({ data: { session } }) => {
-        setSession(session)
-        setUser(session?.user ?? null)
-        setLoading(false)
-      }).catch(() => {
-        setLoading(false)
-      })
 
       // Listen for auth changes (this will handle OAuth callbacks)
       const { data: { subscription } } = client.auth.onAuthStateChange(
-        (event, session) => {
+        async (event, session) => {
           setSession(session)
           setUser(session?.user ?? null)
           setLoading(false)
           
           // Clean up URL hash after successful authentication
-          if (event === 'SIGNED_IN' && window.location.hash) {
-            window.history.replaceState(null, '', window.location.pathname)
+          if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && window.location.hash) {
+            // Wait a bit to ensure session is fully processed
+            setTimeout(() => {
+              window.history.replaceState(null, '', window.location.pathname)
+            }, 100)
           }
         }
       )
+
+      // Get initial session (this will also process OAuth callback if hash is present)
+      client.auth.getSession().then(({ data: { session } }) => {
+        setSession(session)
+        setUser(session?.user ?? null)
+        setLoading(false)
+        
+        // Clean up hash if we have a session
+        if (session && window.location.hash) {
+          setTimeout(() => {
+            window.history.replaceState(null, '', window.location.pathname)
+          }, 100)
+        }
+      }).catch(() => {
+        setLoading(false)
+      })
 
       return () => subscription.unsubscribe()
     } catch (error) {

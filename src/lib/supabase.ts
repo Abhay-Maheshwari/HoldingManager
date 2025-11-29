@@ -11,7 +11,13 @@ export function getSupabaseClient(): SupabaseClient {
     if (!supabaseUrl || !supabaseAnonKey) {
       throw new Error('Missing Supabase environment variables. Please create a .env file with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY')
     }
-    supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true
+      }
+    })
   }
   return supabaseClient
 }
