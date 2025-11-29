@@ -76,10 +76,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Supabase is not configured. Please set up environment variables.')
     }
     const client = getSupabaseClient()
+    // Use current origin (works for both localhost and production)
+    const redirectUrl = window.location.origin
     const { error } = await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}${window.location.pathname}`
+        redirectTo: redirectUrl
       }
     })
     if (error) {
