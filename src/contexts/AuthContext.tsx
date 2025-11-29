@@ -30,6 +30,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const client = getSupabaseClient()
+      
+      // Handle OAuth callback - check for hash fragment
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      if (hashParams.get('access_token')) {
+        // OAuth callback detected - let Supabase handle it
+        // Clean up the URL hash after processing
+        window.history.replaceState(null, '', window.location.pathname)
+      }
+
       // Get initial session
       client.auth.getSession().then(({ data: { session } }) => {
         setSession(session)
@@ -39,12 +48,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false)
       })
 
-      // Listen for auth changes
+      // Listen for auth changes (this will handle OAuth callbacks)
       const { data: { subscription } } = client.auth.onAuthStateChange(
-        (_event, session) => {
+        (event, session) => {
           setSession(session)
           setUser(session?.user ?? null)
           setLoading(false)
+          
+          // Clean up URL hash after successful authentication
+          if (event === 'SIGNED_IN' && window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname)
+          }
         }
       )
 
@@ -63,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin
+        redirectTo: `${window.location.origin}${window.location.pathname}`
       }
     })
     if (error) {
