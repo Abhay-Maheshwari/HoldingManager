@@ -31,9 +31,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const client = getSupabaseClient()
 
+      // Check if we're returning from OAuth callback
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      const isOAuthCallback = hashParams.has('access_token') || hashParams.has('error')
+      
+      // Prevent redirect to localhost if we're on production
+      const currentOrigin = window.location.origin
+      const isLocalhost = currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')
+      
+      if (isOAuthCallback && !isLocalhost) {
+        console.log('OAuth callback detected on production:', currentOrigin)
+        // Ensure we stay on the current origin, don't let Supabase redirect to localhost
+      }
+
       // Listen for auth changes (this will handle OAuth callbacks)
       const { data: { subscription } } = client.auth.onAuthStateChange(
         async (event, session) => {
+          console.log('Auth state changed:', event, session?.user?.email)
           setSession(session)
           setUser(session?.user ?? null)
           setLoading(false)
@@ -42,25 +56,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && window.location.hash) {
             // Wait a bit to ensure session is fully processed
             setTimeout(() => {
-              window.history.replaceState(null, '', window.location.pathname)
-            }, 100)
+              // Stay on current origin, don't redirect
+              const cleanUrl = window.location.pathname + window.location.search
+              const fullUrl = currentOrigin + cleanUrl
+              console.log('Cleaning up URL, staying on:', fullUrl)
+              window.history.replaceState(null, '', cleanUrl)
+              
+              // Double-check we're still on the correct origin
+              if (window.location.origin !== currentOrigin && !isLocalhost) {
+                console.warn('Origin changed! Redirecting back to:', currentOrigin)
+                window.location.href = currentOrigin + cleanUrl
+              }
+            }, 500)
           }
         }
       )
 
       // Get initial session (this will also process OAuth callback if hash is present)
-      client.auth.getSession().then(({ data: { session } }) => {
+      client.auth.getSession().then(({ data: { session }, error }) => {
+        if (error) {
+          console.error('Error getting session:', error)
+        }
         setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)
         
-        // Clean up hash if we have a session
-        if (session && window.location.hash) {
+        // Clean up hash if we have a session or if it was an OAuth callback
+        if ((session || isOAuthCallback) && window.location.hash) {
           setTimeout(() => {
-            window.history.replaceState(null, '', window.location.pathname)
-          }, 100)
+            const cleanUrl = window.location.pathname + window.location.search
+            const fullUrl = currentOrigin + cleanUrl
+            console.log('Cleaning up OAuth callback URL, staying on:', fullUrl)
+            window.history.replaceState(null, '', cleanUrl)
+            
+            // Prevent redirect to localhost on production
+            if (window.location.origin !== currentOrigin && !isLocalhost) {
+              console.warn('Detected redirect to different origin! Fixing to:', currentOrigin)
+              window.location.href = currentOrigin + cleanUrl
+            }
+          }, 500)
         }
-      }).catch(() => {
+      }).catch((error) => {
+        console.error('Error in getSession:', error)
         setLoading(false)
       })
 
@@ -77,16 +114,74 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const client = getSupabaseClient()
     // Use current origin (works for both localhost and production)
+    // IMPORTANT: Use window.location.origin to get the exact current origin
     const redirectUrl = window.location.origin
-    const { error } = await client.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectUrl
+    const isLocalhost = redirectUrl.includes('localhost') || redirectUrl.includes('127.0.0.1')
+    
+    console.log('Current origin:', redirectUrl)
+    console.log('Is localhost:', isLocalhost)
+    console.log('Initiating Google OAuth with redirect URL:', redirectUrl)
+    console.log('Full current URL:', window.location.href)
+    
+    // Validate that we're not accidentally using localhost in production
+    if (!isLocalhost && redirectUrl.includes('localhost')) {
+      console.error('ERROR: Detected localhost in production! This should not happen.')
+    }
+    
+    try {
+      const { data, error } = await client.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          skipBrowserRedirect: false,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
+        }
+      })
+      
+      if (error) {
+        console.error('Error signing in with Google:', error)
+        console.error('Error details:', {
+          message: error.message,
+          status: error.status,
+          redirectUrl: redirectUrl
+        })
+        
+        // Check if it's a redirect URL error
+        if (error.message?.includes('invalid') || error.message?.includes('path')) {
+          console.error('⚠️ This might be a redirect URL configuration issue in Supabase')
+          console.error('Make sure your Vercel URL is added to Supabase Redirect URLs')
+          console.error('And that Site URL in Supabase is set to your Vercel URL')
+        }
+        
+        throw error
       }
-    })
-    if (error) {
-      console.error('Error signing in with Google:', error.message)
-      throw error
+      
+      // OAuth will redirect, so we don't need to return anything
+      if (data?.url) {
+        console.log('Supabase OAuth URL:', data.url)
+        // Verify the redirect URL is in the OAuth URL
+        if (data.url.includes(redirectUrl)) {
+          console.log('✓ Redirect URL confirmed in OAuth URL')
+        } else {
+          console.warn('⚠ Redirect URL mismatch!')
+          console.warn('Expected:', redirectUrl)
+          console.warn('OAuth URL contains:', data.url)
+          console.warn('⚠ This might cause redirect to wrong URL. Check Supabase Site URL setting!')
+        }
+      }
+    } catch (err: any) {
+      console.error('OAuth sign-in failed:', err)
+      if (err?.message?.includes('invalid') || err?.message?.includes('path')) {
+        throw new Error(
+          'Invalid redirect URL. Please check Supabase settings: ' +
+          '1) Site URL should be your Vercel URL, ' +
+          '2) Redirect URLs should include your Vercel URL'
+        )
+      }
+      throw err
     }
   }
 
