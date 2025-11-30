@@ -66,3 +66,4 @@ If it still redirects to localhost after updating Site URL:
 4. **Wait a few minutes** - Supabase changes can take time to propagate
 5. **Verify you're testing on Vercel** - Not on localhost (localhost will redirect to localhost)
 
+

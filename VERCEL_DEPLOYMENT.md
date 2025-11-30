@@ -60,3 +60,4 @@
 - **Check:** Supabase client configuration in `src/lib/supabase.ts`
 - **Check:** `detectSessionInUrl: true` is set
 
+

@@ -78,3 +78,4 @@
 - [ ] Browser console shows no errors
 - [ ] Cookies/localStorage are enabled
 
+
