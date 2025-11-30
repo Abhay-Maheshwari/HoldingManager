@@ -542,7 +542,7 @@ function App() {
           <div className="login-card">
             <div className="login-header">
               <h1>
-                <FileSpreadsheet size={32} className="header-icon" />
+                <img src="/logo.png" alt="Logo" className="header-icon-img" />
                 Holdings Manager
               </h1>
               <p>Loading...</p>
@@ -561,7 +561,7 @@ function App() {
           <div className="login-card">
             <div className="login-header">
               <h1>
-                <FileSpreadsheet size={32} className="header-icon" />
+                <img src="/logo.png" alt="Logo" className="header-icon-img" />
                 Holdings Manager
               </h1>
               <p>Configuration Required</p>
@@ -610,7 +610,7 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key`}
             <div className="login-content">
               <div className="login-brand">
                 <div className="brand-icon">
-                  <FileSpreadsheet size={48} />
+                  <img src="/logo.png" alt="Holdings Manager" className="brand-logo-img" />
                 </div>
                 <h1>Holdings Manager</h1>
                 <p className="tagline">Simplify your portfolio consolidation</p>
@@ -675,7 +675,7 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key`}
             <header className="header animate-fade-in">
               <div className="header-brand">
                 <div className="header-logo">
-                  <FileSpreadsheet size={24} />
+                  <img src="/logo.png" alt="Holdings Manager" className="header-logo-img" />
                 </div>
                 <h1>Holdings Manager</h1>
               </div>
