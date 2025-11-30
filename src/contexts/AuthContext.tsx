@@ -113,18 +113,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Supabase is not configured. Please set up environment variables.')
     }
     const client = getSupabaseClient()
-    // Use current origin (works for both localhost and production)
-    // IMPORTANT: Use window.location.origin to get the exact current origin
-    const redirectUrl = window.location.origin
-    const isLocalhost = redirectUrl.includes('localhost') || redirectUrl.includes('127.0.0.1')
+    // Use current origin with explicit path (works for both localhost and production)
+    // Adding explicit "/" path helps avoid "requested path is invalid" errors
+    const origin = window.location.origin
+    const redirectUrl = `${origin}/`
+    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1')
     
-    console.log('Current origin:', redirectUrl)
+    console.log('Current origin:', origin)
+    console.log('Redirect URL:', redirectUrl)
     console.log('Is localhost:', isLocalhost)
-    console.log('Initiating Google OAuth with redirect URL:', redirectUrl)
     console.log('Full current URL:', window.location.href)
     
     // Validate that we're not accidentally using localhost in production
-    if (!isLocalhost && redirectUrl.includes('localhost')) {
+    if (!isLocalhost && origin.includes('localhost')) {
       console.error('ERROR: Detected localhost in production! This should not happen.')
     }
     
@@ -176,9 +177,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('OAuth sign-in failed:', err)
       if (err?.message?.includes('invalid') || err?.message?.includes('path')) {
         throw new Error(
-          'Invalid redirect URL. Please check Supabase settings: ' +
-          '1) Site URL should be your Vercel URL, ' +
-          '2) Redirect URLs should include your Vercel URL'
+          'Invalid redirect URL. Please check Supabase settings:\n' +
+          '1) Site URL must include https:// (e.g., https://holding-manager.vercel.app)\n' +
+          '2) Redirect URLs must include https:// (e.g., https://holding-manager.vercel.app/)\n' +
+          '3) Add wildcard redirect: https://holding-manager.vercel.app/**'
         )
       }
       throw err
